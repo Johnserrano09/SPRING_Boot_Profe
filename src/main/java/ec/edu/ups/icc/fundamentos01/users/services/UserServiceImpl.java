@@ -14,6 +14,9 @@ import ec.edu.ups.icc.fundamentos01.products.dtos.ProductResponseDto;
 
 import ec.edu.ups.icc.fundamentos01.products.models.ProductEntity;
 import ec.edu.ups.icc.fundamentos01.products.repository.ProductRepository;
+import ec.edu.ups.icc.fundamentos01.security.models.RoleEntity;
+import ec.edu.ups.icc.fundamentos01.security.models.RoleName;
+import ec.edu.ups.icc.fundamentos01.security.repository.RoleRepository;
 import ec.edu.ups.icc.fundamentos01.users.dtos.CreateUserDto;
 import ec.edu.ups.icc.fundamentos01.users.dtos.PartialUpdateUserDto;
 import ec.edu.ups.icc.fundamentos01.users.dtos.UpdateUserDto;
@@ -22,15 +25,24 @@ import ec.edu.ups.icc.fundamentos01.users.mappers.UserMapper;
 import ec.edu.ups.icc.fundamentos01.users.models.User;
 import ec.edu.ups.icc.fundamentos01.users.models.UserEntity;
 import ec.edu.ups.icc.fundamentos01.users.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepo;
     private final ProductRepository productRepo;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserRepository userRepo, ProductRepository productRepo) {
+    public UserServiceImpl(
+            UserRepository userRepo,
+            ProductRepository productRepo,
+            RoleRepository roleRepository,
+            PasswordEncoder passwordEncoder) {
         this.userRepo = userRepo;
         this.productRepo = productRepo;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -55,13 +67,20 @@ public class UserServiceImpl implements UserService {
 
         // Regla: email único. Si ya existe, regresamos el usuario existente para hacer el POST idempotente
         return userRepo.findByEmail(dto.email)
-                .map(User::fromEntity)
-                .map(UserMapper::toResponse)
-                .orElseGet(() -> {
-                    User user = UserMapper.fromCreateDto(dto);
-                    UserEntity saved = userRepo.save(user.toEntity());
-                    return UserMapper.toResponse(User.fromEntity(saved));
-                });
+            .map(User::fromEntity)
+            .map(UserMapper::toResponse)
+            .orElseGet(() -> {
+                    RoleEntity userRole = roleRepository.findByName(RoleName.ROLE_USER)
+                    .orElseThrow(() -> new IllegalStateException("Rol USER no está inicializado"));
+
+                User user = UserMapper.fromCreateDto(dto);
+                UserEntity entity = user.toEntity();
+                entity.setPassword(passwordEncoder.encode(dto.password));
+                entity.getRoles().add(userRole);
+
+                UserEntity saved = userRepo.save(entity);
+                return UserMapper.toResponse(User.fromEntity(saved));
+            });
 
     }
 

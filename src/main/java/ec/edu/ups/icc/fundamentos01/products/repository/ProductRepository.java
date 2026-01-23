@@ -94,8 +94,14 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
          * Busca productos con filtros opcionales y paginación
          * Todos los parámetros son opcionales excepto el Pageable
          */
-        @Query("SELECT DISTINCT p FROM ProductEntity p " +
-                "JOIN p.owner o " +
+        @Query(value = "SELECT DISTINCT p FROM ProductEntity p " +
+                "JOIN FETCH p.owner o " +
+                "LEFT JOIN FETCH p.categories c " +
+                "WHERE (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))) " +
+                "AND (:minPrice IS NULL OR p.price >= :minPrice) " +
+                "AND (:maxPrice IS NULL OR p.price <= :maxPrice) " +
+                "AND (:categoryId IS NULL OR c.id = :categoryId)",
+                countQuery = "SELECT COUNT(DISTINCT p) FROM ProductEntity p " +
                 "LEFT JOIN p.categories c " +
                 "WHERE (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))) " +
                 "AND (:minPrice IS NULL OR p.price >= :minPrice) " +
@@ -111,7 +117,15 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
         /**
          * Busca productos de un usuario con filtros opcionales y paginación
          */
-        @Query("SELECT DISTINCT p FROM ProductEntity p " +
+        @Query(value = "SELECT DISTINCT p FROM ProductEntity p " +
+                "JOIN FETCH p.owner o " +
+                "LEFT JOIN FETCH p.categories c " +
+                "WHERE o.id = :userId " +
+                "AND (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))) " +
+                "AND (:minPrice IS NULL OR p.price >= :minPrice) " +
+                "AND (:maxPrice IS NULL OR p.price <= :maxPrice) " +
+                "AND (:categoryId IS NULL OR c.id = :categoryId)",
+                countQuery = "SELECT COUNT(DISTINCT p) FROM ProductEntity p " +
                 "JOIN p.owner o " +
                 "LEFT JOIN p.categories c " +
                 "WHERE o.id = :userId " +
