@@ -26,10 +26,10 @@ public class CategoryController {
     }
 
     @PostMapping()
-    public ResponseEntity<String> create(@RequestBody CategoryCreateDto entity) {
+    public ResponseEntity<CategoryResponseDto> create(@RequestBody CategoryCreateDto entity) {
 
-        categoryService.save(entity);
-        return ResponseEntity.ok("Categoría creada exitosamente");
+        CategoryResponseDto created = categoryService.save(entity);
+        return ResponseEntity.ok(created);
     }
 
     @GetMapping()

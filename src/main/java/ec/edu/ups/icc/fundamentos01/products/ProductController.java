@@ -146,7 +146,7 @@ public class ProductController {
             @PathVariable("id") Long id,
             @Valid @RequestBody UpdateProductDto dto) {
         ProductResponseDto updated = productService.update(id, dto);
-        return ResponseEntity.ok(updated);–
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")

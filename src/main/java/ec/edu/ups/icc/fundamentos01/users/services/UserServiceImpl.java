@@ -53,16 +53,15 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponseDto create(CreateUserDto dto) {
 
-        // Regla: email único
-        if (userRepo.findByEmail(dto.email).isPresent()) {
-            throw new IllegalStateException("El email ya está registrado");
-        }
-
-        User user = UserMapper.fromCreateDto(dto);
-
-        UserEntity saved = userRepo.save(user.toEntity());
-
-        return UserMapper.toResponse(User.fromEntity(saved));
+        // Regla: email único. Si ya existe, regresamos el usuario existente para hacer el POST idempotente
+        return userRepo.findByEmail(dto.email)
+                .map(User::fromEntity)
+                .map(UserMapper::toResponse)
+                .orElseGet(() -> {
+                    User user = UserMapper.fromCreateDto(dto);
+                    UserEntity saved = userRepo.save(user.toEntity());
+                    return UserMapper.toResponse(User.fromEntity(saved));
+                });
 
     }
 

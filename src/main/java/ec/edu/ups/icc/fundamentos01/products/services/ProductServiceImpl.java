@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import ec.edu.ups.icc.fundamentos01.categories.dtos.CategoryResponseDto;
 import ec.edu.ups.icc.fundamentos01.categories.entity.CategoryEntity;
@@ -55,11 +56,6 @@ public class ProductServiceImpl implements ProductService {
         // 2. VALIDAR Y OBTENER CATEGORÍAS
         Set<CategoryEntity> categories = validateAndGetCategories(dto.categoryIds);
 
-        // Regla: nombre único
-        if (productRepo.findByName(dto.name).isPresent()) {
-            throw new IllegalStateException("El nombre del producto ya está registrado");
-        }
-
         // 2. CREAR MODELO DE DOMINIO
         Product product = Product.fromDto(dto);
 
@@ -74,6 +70,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductResponseDto> findAll() {
         return productRepo.findAll()
                 .stream()
@@ -84,6 +81,7 @@ public class ProductServiceImpl implements ProductService {
     // ============== MÉTODOS HELPER ==============
 
     @Override
+    @Transactional(readOnly = true)
     public ProductResponseDto findById(Long id) {
         return productRepo.findById(id)
                 .map(this::toResponseDto)
@@ -91,6 +89,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductResponseDto> findByUserId(Long userId) {
 
         // Validar que el usuario existe
@@ -105,6 +104,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductResponseDto> findByCategoryId(Long categoryId) {
 
         // Validar que la categoría existe
@@ -154,6 +154,7 @@ public class ProductServiceImpl implements ProductService {
     // ============== MÉTODOS CON PAGINACIÓN ==============
 
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductResponseDto> findAll(int page, int size, String[] sort) {
         Pageable pageable = createPageable(page, size, sort);
         Page<ProductEntity> productPage = productRepo.findAll(pageable);
@@ -162,6 +163,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Slice<ProductResponseDto> findAllSlice(int page, int size, String[] sort) {
         Pageable pageable = createPageable(page, size, sort);
         Slice<ProductEntity> productSlice = productRepo.findAll(pageable);
@@ -170,6 +172,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductResponseDto> findWithFilters(
             String name, Double minPrice, Double maxPrice, Long categoryId,
             int page, int size, String[] sort) {
@@ -188,6 +191,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductResponseDto> findByUserIdWithFilters(
             Long userId, String name, Double minPrice, Double maxPrice, Long categoryId,
             int page, int size, String[] sort) {
@@ -233,23 +237,47 @@ public class ProductServiceImpl implements ProductService {
         }
 
         List<Sort.Order> orders = new ArrayList<>();
-        for (String sortParam : sort) {
-            String[] parts = sortParam.split(",");
-            String property = parts[0];
-            String direction = parts.length > 1 ? parts[1] : "asc";
-            
+
+        for (int i = 0; i < sort.length; i++) {
+            String sortParam = sort[i];
+            String property;
+            String direction = "asc";
+
+            // Caso más común: "price,desc" en un solo elemento
+            if (sortParam.contains(",")) {
+                String[] parts = sortParam.split(",");
+                property = parts[0];
+                if (parts.length > 1) {
+                    direction = parts[1];
+                }
+            } else if ((i + 1) < sort.length && ("asc".equalsIgnoreCase(sort[i + 1]) || "desc".equalsIgnoreCase(sort[i + 1]))) {
+                // Caso sort=price&sort=desc (Spring lo separa en dos tokens)
+                property = sortParam;
+                direction = sort[i + 1];
+                i++; // Consumir la siguiente posición ya usada como dirección
+            } else if ("asc".equalsIgnoreCase(sortParam) || "desc".equalsIgnoreCase(sortParam)) {
+                // Token suelto sin propiedad, lo ignoramos para no romper
+                continue;
+            } else {
+                property = sortParam;
+            }
+
             // Validar propiedades permitidas para evitar inyección SQL
             if (!isValidSortProperty(property)) {
                 throw new BadRequestException("Propiedad de ordenamiento no válida: " + property);
             }
-            
-            Sort.Order order = "desc".equalsIgnoreCase(direction) 
-                ? Sort.Order.desc(property)
-                : Sort.Order.asc(property);
-            
+
+            Sort.Order order = "desc".equalsIgnoreCase(direction)
+                    ? Sort.Order.desc(property)
+                    : Sort.Order.asc(property);
+
             orders.add(order);
         }
-        
+
+        if (orders.isEmpty()) {
+            return Sort.by("id");
+        }
+
         return Sort.by(orders);
     }
 

@@ -95,7 +95,7 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
          * Todos los parámetros son opcionales excepto el Pageable
          */
         @Query("SELECT DISTINCT p FROM ProductEntity p " +
-                "JOIN FETCH p.owner o " +
+                "JOIN p.owner o " +
                 "LEFT JOIN p.categories c " +
                 "WHERE (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))) " +
                 "AND (:minPrice IS NULL OR p.price >= :minPrice) " +
@@ -112,7 +112,7 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
          * Busca productos de un usuario con filtros opcionales y paginación
          */
         @Query("SELECT DISTINCT p FROM ProductEntity p " +
-                "JOIN FETCH p.owner o " +
+                "JOIN p.owner o " +
                 "LEFT JOIN p.categories c " +
                 "WHERE o.id = :userId " +
                 "AND (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))) " +

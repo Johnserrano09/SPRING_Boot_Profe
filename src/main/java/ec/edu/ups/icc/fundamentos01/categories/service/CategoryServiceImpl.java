@@ -13,7 +13,7 @@ import ec.edu.ups.icc.fundamentos01.categories.reporitory.CategoryRepository;
 @Service
 public class CategoryServiceImpl implements CategoryService {
 
-    private CategoryRepository categoryRepository;
+    private final CategoryRepository categoryRepository;
 
     public CategoryServiceImpl(CategoryRepository categoryRepository) {
         this.categoryRepository = categoryRepository;
@@ -21,17 +21,24 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public List<CategoryResponseDto> findAll() {
-        return categoryRepository.findAll().stream().map(CategoryMapper::toResponseDto).toList();
+        return categoryRepository.findAll()
+                .stream()
+                .map(CategoryMapper::toResponseDto)
+                .toList();
     }
 
     @Override
-    public void save(CategoryCreateDto createDto) {
-
-        var categoryEntity = new CategoryEntity();
-        categoryEntity.setName(createDto.name);
-        categoryEntity.setDescription(createDto.description);
-        categoryRepository.save(categoryEntity);
-
+    public CategoryResponseDto save(CategoryCreateDto createDto) {
+        // Idempotencia: si ya existe la categoría por nombre, retornamos la existente
+        return categoryRepository.findByNameIgnoreCase(createDto.name)
+                .map(CategoryMapper::toResponseDto)
+                .orElseGet(() -> {
+                    var categoryEntity = new CategoryEntity();
+                    categoryEntity.setName(createDto.name);
+                    categoryEntity.setDescription(createDto.description);
+                    CategoryEntity saved = categoryRepository.save(categoryEntity);
+                    return CategoryMapper.toResponseDto(saved);
+                });
     }
 
 }
